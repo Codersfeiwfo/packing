@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Compression Playground</title>
+    <style>
+        :root {
+            --bg-main: #121212;
+            --bg-card: #1e1e1e;
+            --bg-input: #252525;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --accent-blue: #378add;
+            --accent-green: #4caf50;
+            --border-color: #333333;
+            --radius: 12px;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+
+        .container { max-width: 800px; width: 100%; text-align: center; }
+
+        .header-label {
+            text-transform: uppercase; font-size: 11px; letter-spacing: 1px; color: var(--text-secondary);
+            border: 1px solid var(--border-color); display: inline-block; padding: 5px 15px;
+            border-radius: 20px; margin-bottom: 20px;
+        }
+
+        h1 { font-size: 32px; margin-bottom: 12px; font-weight: 500; }
+        .subtitle { color: var(--text-secondary); margin-bottom: 40px; line-height: 1.6; font-size: 15px; }
+
+        .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 30px; border: 1px solid var(--border-color); border-radius: 12px; padding: 5px; width: fit-content; margin-left: auto; margin-right: auto; }
+        .tab { padding: 10px 20px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: 0.2s; border: none; background: transparent; font-size: 14px; }
+        .tab.active { background: var(--bg-input); color: var(--text-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+
+        .section { display: none; text-align: left; }
+        .section.active { display: block; }
+
+        .card { background-color: var(--bg-card); border-radius: var(--radius); padding: 24px; border: 1px solid var(--border-color); margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 15px; display: block; }
+
+        textarea { width: 100%; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; color: var(--text-primary); font-family: monospace; font-size: 16px; resize: none; box-sizing: border-box; outline: none; }
+        input[type=range] { width: 100%; accent-color: var(--accent-blue); cursor: pointer; }
+        button { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-color); padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 12px; }
+        button:hover { background: #333; }
+
+        .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 20px 0; }
+        .stat { background: var(--bg-input); padding: 15px; border-radius: 10px; text-align: center; }
+        .stat-val { font-size: 24px; font-weight: 600; }
+        .stat-lbl { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+        .pixel-grid { display: flex; flex-wrap: wrap; gap: 4px; margin: 15px 0; }
+        .pixel { width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); }
+        .encoded-line { background: #151515; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 13px; word-break: break-all; color: #ddd; border: 1px solid #222; min-height: 20px; line-height: 1.6; }
+        .highlight { background: var(--accent-blue); color: #fff; border-radius: 4px; padding: 2px 6px; margin: 2px; display: inline-block; font-weight: bold; }
+        
+        .huffman-chars { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; }
+        .hchar { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; min-width: 60px; text-align: center; }
+        .hchar-letter { font-size: 16px; font-weight: bold; }
+        .hchar-code { color: var(--accent-blue); font-size: 11px; font-family: monospace; margin: 4px 0; }
+        .hchar-freq { font-size: 10px; color: var(--text-secondary); }
+
+        .img-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
+        .img-box { border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: #000; text-align: center; }
+        canvas { max-width: 100%; height: auto; display: block; }
+        .img-caption { padding: 8px; font-size: 11px; background: var(--bg-input); color: var(--text-secondary); }
+        .progress-bar { height: 8px; background: #151515; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; background: var(--accent-blue); transition: 0.3s; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-label">Interactive Playground</div>
+    <h1>Data Compression Visualizer</h1>
+    <p class="subtitle">Explore RLE, JPEG, and Huffman algorithms.<br>Interact, tweak, and observe the results.</p>
+
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('rle', this)">RLE — Pixels</button>
+        <button class="tab" onclick="showTab('jpeg', this)">JPEG — Quality</button>
+        <button class="tab" onclick="showTab('huffman', this)">Huffman — Text</button>
+    </div>
+
+    <div id="rle" class="section active">
+        <div class="card">
+            <span class="label">Draw pixel line — Click color then grid cell</span>
+            <div style="display:flex; gap:12px; align-items:center; margin-bottom:15px; flex-wrap:wrap;">
+                <div id="palette" style="display:flex; gap:8px;">
+                    <div onclick="selectColor('#378ADD', this)" class="pixel" style="background:#378ADD; cursor:pointer; outline:2px solid #fff;"></div>
+                    <div onclick="selectColor('#D85A30', this)" class="pixel" style="background:#D85A30; cursor:pointer;"></div>
+                    <div onclick="selectColor('#639922', this)" class="pixel" style="background:#639922; cursor:pointer;"></div>
+                    <div onclick="selectColor('#D4537E', this)" class="pixel" style="background:#D4537E; cursor:pointer;"></div>
+                    <div onclick="selectColor('#888780', this)" class="pixel" style="background:#888780; cursor:pointer;"></div>
+                </div>
+                <button onclick="resetPixels()">Reset</button>
+                <button onclick="fillExample()">Example</button>
+            </div>
+            <div class="pixel-grid" id="pixelGrid"></div>
+        </div>
+        <div class="card">
+            <span class="label">Uncompressed — Every pixel separately</span>
+            <div class="encoded-line" id="rawData"></div>
+            <div class="stat-row">
+                <div class="stat"><div class="stat-val" id="rawBytes">0</div><div class="stat-lbl">bytes (original)</div></div>
+                <div class="stat"><div class="stat-val" id="rleBytes">0</div><div class="stat-lbl">bytes (RLE)</div></div>
+                <div class="stat"><div class="stat-val" id="rleSavings" style="color:var(--accent-green)">0%</div><div class="stat-lbl">savings</div></div>
+            </div>
+            <span class="label">RLE — Counting repeats</span>
+            <div class="encoded-line" id="rleData"></div>
+        </div>
+    </div>
+
+    <div id="jpeg" class="section">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <span class="label">JPEG Quality</span>
+                <span id="qualityVal" style="font-weight:bold; color:var(--accent-blue)">80%</span>
+            </div>
+            <input type="range" min="1" max="100" value="80" id="qualitySlider" oninput="updateJpeg()">
+            
+            <div class="img-compare">
+                <div class="img-box"><canvas id="origCanvas" width="200" height="150"></canvas><div class="img-caption">Original</div></div>
+                <div class="img-box"><canvas id="jpegCanvas" width="200" height="150"></canvas><div class="img-caption" id="jpegCaption">Compressed</div></div>
+            </div>
+
+            <div class="stat-row">
+                <div class="stat"><div class="stat-val" id="origSize">~87 KB</div><div class="stat-lbl">uncompressed</div></div>
+                <div class="stat"><div class="stat-val" id="compSize">—</div><div class="stat-lbl">compressed</div></div>
+                <div class="stat"><div class="stat-val" id="jpegSavings" style="color:var(--accent-green)">—</div><div class="stat-lbl">savings</div></div>
+            </div>
+            <span class="label">File Size</span>
+            <div class="progress-bar"><div class="progress-fill" id="jpegBar" style="width:100%;"></div></div>
+            <div id="jpegNote" style="font-size:12px; color:var(--text-secondary); margin-top:10px; font-style: italic;"></div>
+        </div>
+    </div>
+
+    <div id="huffman" class="section">
+        <div class="card">
+            <span class="label">Enter text — See how Huffman encodes characters</span>
+            <textarea id="huffInput" oninput="updateHuffman()">hello world</textarea>
+        </div>
+        <div class="card">
+            <span class="label">Frequency → Code length</span>
+            <div class="huffman-chars" id="huffChars"></div>
+            <div class="stat-row">
+                <div class="stat"><div class="stat-val" id="huffOrig">0</div><div class="stat-lbl">bits (ASCII)</div></div>
+                <div class="stat"><div class="stat-val" id="huffComp">0</div><div class="stat-lbl">bits (Huffman)</div></div>
+                <div class="stat"><div class="stat-val" id="huffSave" style="color:var(--accent-green)">0%</div><div class="stat-lbl">savings</div></div>
+            </div>
+            <span class="label">Encoded Stream</span>
+            <div class="encoded-line" id="huffStream"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Logic remains identical, just translated string names
+let pixels = [];
+let selectedColor = '#378ADD';
+const colorNames = {'#378ADD':'B','#D85A30':'R','#639922':'G','#D4537E':'P','#888780':'Gr'};
+const GRID_SIZE = 24;
+
+function selectColor(c, el) {
+    selectedColor = c;
+    document.querySelectorAll('#palette .pixel').forEach(p => p.style.outline = '');
+    el.style.outline = '2px solid #fff';
+}
+
+function initPixels() { pixels = Array(GRID_SIZE).fill('#378ADD'); renderPixels(); }
+
+function fillExample() {
+    pixels = [...Array(8).fill('#378ADD'), ...Array(4).fill('#D85A30'), ...Array(8).fill('#378ADD'), ...Array(4).fill('#639922')];
+    renderPixels();
+}
+
+function resetPixels() { initPixels(); }
+
+function renderPixels() {
+    const grid = document.getElementById('pixelGrid');
+    grid.innerHTML = '';
+    pixels.forEach((c, i) => {
+        const d = document.createElement('div');
+        d.className = 'pixel';
+        d.style.background = c;
+        d.style.cursor = 'pointer';
+        d.onclick = () => { pixels[i] = selectedColor; renderPixels(); };
+        grid.appendChild(d);
+    });
+    updateRLE();
+}
+
+function updateRLE() {
+    const raw = pixels.map(c => colorNames[c] || '?');
+    document.getElementById('rawData').textContent = raw.join(' ');
+    document.getElementById('rawBytes').textContent = pixels.length;
+    const rle = [];
+    let i = 0;
+    while (i < pixels.length) {
+        let j = i;
+        while (j < pixels.length && pixels[j] === pixels[i]) j++;
+        rle.push({ count: j - i, color: colorNames[pixels[i]] || '?' });
+        i = j;
+    }
+    const rleBytes = rle.length * 2;
+    document.getElementById('rleBytes').textContent = rleBytes;
+    const savings = Math.max(0, Math.round((1 - rleBytes / pixels.length) * 100));
+    document.getElementById('rleSavings').textContent = savings + '%';
+    const rleEl = document.getElementById('rleData');
+    rleEl.innerHTML = rle.map(r => `<span class="highlight">${r.count}${r.color}</span>`).join(' ');
+}
+
+function showTab(id, btn) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+    if (id === 'jpeg') initJpeg();
+    if (id === 'huffman') updateHuffman();
+}
+
+function drawScene(ctx) {
+    const w = 200, h = 150;
+    ctx.fillStyle = '#5DCAA5'; ctx.fillRect(0,0,w,h);
+    const grad = ctx.createLinearGradient(0,0,0,h*0.6);
+    grad.addColorStop(0,'#85B7EB'); grad.addColorStop(1,'#378ADD');
+    ctx.fillStyle = grad; ctx.fillRect(0,0,w,h*0.55);
+    ctx.fillStyle = '#1D9E75';
+    ctx.beginPath(); ctx.ellipse(100,h*0.85,90,40,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#0F6E56';
+    [[30,80],[80,65],[150,75],[170,85]].forEach(([x,y])=>{
+        ctx.beginPath(); ctx.arc(x,y,18,0,Math.PI*2); ctx.fill();
+        ctx.fillRect(x-3,y,6,20);
+    });
+    ctx.fillStyle = '#FAC775';
+    ctx.beginPath(); ctx.arc(160,30,18,0,Math.PI*2); ctx.fill();
+}
+
+let origCtx, jpegCtx, jpegInited = false;
+function initJpeg() {
+    if (jpegInited) return;
+    jpegInited = true;
+    const oc = document.getElementById('origCanvas');
+    const jc = document.getElementById('jpegCanvas');
+    origCtx = oc.getContext('2d');
+    jpegCtx = jc.getContext('2d');
+    drawScene(origCtx);
+    updateJpeg();
+}
+
+function updateJpeg() {
+    const q = parseInt(document.getElementById('qualitySlider').value);
+    document.getElementById('qualityVal').textContent = q + '%';
+    if (!origCtx) return;
+    const oc = document.getElementById('origCanvas');
+    const dataUrl = oc.toDataURL('image/jpeg', q / 100);
+    const img = new Image();
+    img.onload = () => { jpegCtx.drawImage(img, 0, 0); };
+    img.src = dataUrl;
+    const base64Len = dataUrl.split(',')[1].length;
+    const compBytes = Math.round(base64Len * 3 / 4);
+    const origBytes = 200 * 150 * 3;
+    const ratio = Math.round((1 - compBytes / origBytes) * 100);
+    document.getElementById('origSize').textContent = Math.round(origBytes / 1024) + ' KB';
+    document.getElementById('compSize').textContent = Math.round(compBytes / 1024) + ' KB';
+    document.getElementById('jpegSavings').textContent = Math.max(0, ratio) + '%';
+    document.getElementById('jpegBar').style.width = Math.max(2, 100 - ratio) + '%';
+    document.getElementById('jpegCaption').textContent = q <= 20 ? 'Compressed (Artifacts!)' : 'Compressed';
+    document.getElementById('jpegNote').textContent = q <= 20 ? 'See those blocks? That is the algorithm saving space.' : 'At high quality, the difference is hard to spot.';
+}
+
+function buildHuffman(freq) {
+    let nodes = Object.entries(freq).map(([ch, f]) => ({ ch, f, code: '' }));
+    if (nodes.length === 1) { nodes[0].code = '0'; return nodes; }
+    const pq = [...nodes].sort((a,b) => a.f - b.f);
+    const tree = pq.map(n => ({ ...n, left: null, right: null }));
+    const heap = tree.map(n => ({ node: n, f: n.f }));
+    while (heap.length > 1) {
+        heap.sort((a,b) => a.f - b.f);
+        const l = heap.shift(), r = heap.shift();
+        heap.push({ node: { left: l.node, right: r.node }, f: l.f + r.f });
+    }
+    const codes = {};
+    function traverse(node, code) {
+        if (!node) return;
+        if (!node.left && !node.right) { codes[node.ch] = code || '0'; return; }
+        traverse(node.left, code + '0');
+        traverse(node.right, code + '1');
+    }
+    traverse(heap[0]?.node, '');
+    return nodes.map(n => ({ ...n, code: codes[n.ch] || '0' }));
+}
+
+function updateHuffman() {
+    const text = document.getElementById('huffInput').value;
+    if (!text.length) return;
+    const freq = {};
+    for (const ch of text) freq[ch] = (freq[ch] || 0) + 1;
+    const nodes = buildHuffman(freq).sort((a,b) => b.f - a.f);
+    const charsEl = document.getElementById('huffChars');
+    charsEl.innerHTML = nodes.slice(0, 18).map(n => `
+        <div class="hchar">
+            <div class="hchar-letter">${n.ch === ' ' ? '␣' : n.ch}</div>
+            <div class="hchar-code">${n.code}</div>
+            <div class="hchar-freq">${n.f}×</div>
+        </div>`).join('');
+    const codeMap = {};
+    nodes.forEach(n => codeMap[n.ch] = n.code);
+    const origBits = text.length * 8;
+    let compBits = 0;
+    for (const ch of text) compBits += (codeMap[ch] || '0').length;
+    document.getElementById('huffOrig').textContent = origBits;
+    document.getElementById('huffComp').textContent = compBits;
+    document.getElementById('huffSave').textContent = Math.round((1 - compBits / origBits) * 100) + '%';
+    const stream = text.split('').map(ch => codeMap[ch] || '').join('');
+    document.getElementById('huffStream').textContent = stream.slice(0, 400);
+}
+
+initPixels();
+fillExample();
+</script>
+
+</body>
+</html>
